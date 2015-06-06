@@ -55,20 +55,20 @@ namespace OOPlaba4
         {
             public ObservableCollection<Weapon> Weapons { get; set; }
         }
-
+        //find all plugins and create there instances
         private void RefreshPlugins()
         {
             plugins.Clear();
-            //MessageBox.Show(pluginPath);
-
             DirectoryInfo pluginDirectory = new DirectoryInfo(pluginPath);
             if (!pluginDirectory.Exists)
                 pluginDirectory.Create();                 
             var pluginFiles = Directory.GetFiles(pluginPath, "*.dll");
+            var hierarchyPluginFiles = Directory.GetFiles(sourcePath, "*.dll");
             foreach (var file in pluginFiles)
             {
                 
-                Assembly asm = Assembly.LoadFrom(file);                
+                Assembly asm = Assembly.LoadFrom(file);
+                
                 var types = asm.GetTypes().
                                 Where(t => t.GetInterfaces().
                                 Where(i => i.FullName == typeof(IExt).FullName).Any());
@@ -80,20 +80,36 @@ namespace OOPlaba4
                 {
                     var plugin = asm.CreateInstance(type.FullName) as IExt;
                     plugins.Add(plugin);
+                    listOfExtensions.Items.Add(plugin);
                 }
                 foreach (var type in typesChkCompare)
                 {
                     var plugin = asm.CreateInstance(type.FullName) as IComparer;
                     comparerPlugins.Add(plugin);
+                    listOfExtensions.Items.Add(plugin);
                 }
             }
+            foreach (var file in hierarchyPluginFiles)
+            {
+                Assembly asmClasses = Assembly.LoadFrom(file);
+                var types = asmClasses.GetTypes().Where(type => type.IsSubclassOf(typeof(Weapon)));
+                foreach (var type in types)
+                {
+                    var plugin = asmClasses.CreateInstance(type.FullName) as Weapon;
+                    weapons1.Add(plugin);
+                }
+            }
+            Weapon weapon = new Weapon();
+            weapons1.Add(weapon);
         }
+        //call methods of saving CRC 
         private void ActivateSaveCRCPlugins()
         {
             foreach (var plugin in plugins)
                 plugin.saveChkSum(weapons, "test.txt");
             
         }
+        //call methods of checking CRC
         private void ActivateCompareCRCPlugins()
         {
             
@@ -101,53 +117,10 @@ namespace OOPlaba4
                 MessageBox.Show("CRC is Correct? " + plugin.ChkSumCompare("test.txt").ToString());
         }
 
-        private void CreateFilesPaths()
-        {
-            List<string> filesPaths = new List<string>(Directory.EnumerateFiles(sourcePath));
-            for (int i = 0; i < filesPaths.Count; i++)
-            {
-                if (System.IO.Path.GetExtension(filesPaths[i]) == ".dll")
-                {
-                    classesNames.Add(filesPaths[i]);
-                }
-            }
-        }
-
-        private void CreateAllTypes()
-        {
-            for (int i = 0; i < classesNames.Count; i++)
-            {
-                Assembly temp = Assembly.LoadFrom(classesNames[i]);
-                dllTypes.AddRange(temp.GetExportedTypes().Where(type => type.IsSubclassOf(typeof(Weapon))));
-                otherDllTypes.AddRange(temp.GetExportedTypes().Where(type => type.IsSubclassOf(typeof(TegForExtensions.Extension))));
-                //MessageBox.Show(otherDllTypes[i].ToString());
-            }
-            
-        }
-
-        private void CreateAllObjects()
-        {
-            object newWeapon;
-            for (int i = 0; i < dllTypes.Count; i++)
-            {
-                newWeapon = Activator.CreateInstance(dllTypes[i]);
-                weapons1.Add((Weapon)newWeapon);
-            }
-            newWeapon = new Weapon();
-            weapons1.Add((Weapon)newWeapon);
-            object newExt;
-            for (int i = 0; i < otherDllTypes.Count; i++)
-            {
-
-                newExt = Activator.CreateInstance(otherDllTypes[i]) as IExt;
-                
-                extensions.Add((TegForExtensions.Extension)newExt);
-            }
-            
-        }
+       
 
         
-
+        //displays all properties of classes in plugins hierarchy
         private void ShowAllProperties(ListBox list)
         {
             int i = 0;
@@ -179,13 +152,11 @@ namespace OOPlaba4
 
         private void GetListOfWeapons_Click(object sender, RoutedEventArgs e)
         {
-            CreateFilesPaths();
-            CreateAllTypes();
-            CreateAllObjects();
+            
             RefreshPlugins();           
             WeaponsTypes.ItemsSource = weapons1;
             WeaponsList.ItemsSource = weapons;
-            listOfExtensions.ItemsSource = extensions;
+            
         }
 
 
